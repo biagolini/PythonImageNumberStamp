@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Photo Album</title>
+    <link
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css"
+      rel="stylesheet"
+    />
+    <style>
+      .active-page .page-link {
+        background-color: #6c757d;
+        color: white;
+      }
+      .page-input {
+        width: 150px;
+        text-align: center;
+      }
+      .pagination-container {
+        max-width: 400px;
+        margin: 0 auto;
+      }
+      .page-input-container {
+        text-align: center;
+        margin-top: 10px;
+      }
+      .modal-body {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+      }
+      .image-details-container {
+        width: 100%;
+        max-width: 500px;
+        margin-top: 20px;
+      }
+      .image-details-container img {
+        width: 100%;
+      }
+      #imageDetails {
+        width: 100%;
+      }
+      .table {
+        width: 100%;
+        table-layout: fixed;
+        word-wrap: break-word;
+      }
+      .table th,
+      .table td {
+        overflow-wrap: break-word;
+        word-wrap: break-word;
+        white-space: normal;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h1 class="text-center my-4">
+        Photo Album - Page <span id="pageNumber"></span>
+      </h1>
+      <div id="imageGrid" class="row"></div>
+
+      <div class="pagination-container">
+        <nav aria-label="Page navigation">
+          <ul class="pagination justify-content-center">
+            <li class="page-item" id="previousPageItem">
+              <a
+                class="page-link"
+                href="#"
+                onclick="changePage(currentPage - 1)"
+                >Previous</a
+              >
+            </li>
+            <li class="page-item" id="previousPageLinkItem">
+              <a
+                class="page-link"
+                href="#"
+                onclick="changePage(currentPage - 1)"
+                id="previousPageLink"
+              ></a>
+            </li>
+            <li class="page-item active-page" id="currentPageLinkItem">
+              <a class="page-link" href="#" onclick="changePage(currentPage)"
+                ><span id="currentPageLink"></span
+              ></a>
+            </li>
+            <li class="page-item" id="nextPageLinkItem">
+              <a
+                class="page-link"
+                href="#"
+                onclick="changePage(currentPage + 1)"
+                id="nextPageLink"
+              ></a>
+            </li>
+            <li class="page-item" id="nextPageItem">
+              <a
+                class="page-link"
+                href="#"
+                onclick="changePage(currentPage + 1)"
+                >Next</a
+              >
+            </li>
+          </ul>
+        </nav>
+        <div class="page-input-container">
+          <input
+            type="number"
+            class="form-control page-input d-inline"
+            id="pageInput"
+            min="1"
+            placeholder="Go to page"
+          />
+          <button class="btn btn-primary" onclick="goToPage()">Go</button>
+        </div>
+      </div>
+    </div>
+
+    <div
+      class="modal fade"
+      id="imageModal"
+      tabindex="-1"
+      aria-labelledby="exampleModalLabel"
+      aria-hidden="true"
+    >
+      <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+          <div class="modal-body">
+            <div class="image-details-container">
+              <img id="modalImage" src="" class="img-fluid" alt="Full Image" />
+              <div id="imageDetails" class="mt-4">
+                <p>
+                  <strong>Accessed Timestamp:</strong>
+                  <span id="accessTimestamp"></span>
+                </p>
+                <h5>Response Headers</h5>
+                <table class="table table-bordered">
+                  <thead>
+                    <tr>
+                      <th>Header</th>
+                      <th>Value</th>
+                    </tr>
+                  </thead>
+                  <tbody id="responseHeaders"></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      const imagesPerPage = 12
+      let currentPage = 1
+
+      function loadImages(page) {
+        const imageGrid = document.getElementById('imageGrid')
+        imageGrid.innerHTML = ''
+
+        const imagesArray = []
+
+        for (let i = 1; i <= imagesPerPage; i++) {
+          const imgNumber = (page - 1) * imagesPerPage + i
+          const imgName = `${imgNumber}.jpg`
+          const imgPath = `img/${imgName}`
+          const img = new Image()
+          img.src = imgPath
+          img.alt = `Image ${imgName}`
+          img.className = 'img-fluid mb-4'
+          img.setAttribute('data-bs-toggle', 'modal')
+          img.setAttribute('data-bs-target', '#imageModal')
+          img.setAttribute('onclick', `showImage('${imgPath}')`)
+
+          // Se a imagem falhar ao carregar, substituir por uma div cinza
+          img.onerror = () => {
+            const placeholder = document.createElement('div')
+            placeholder.className =
+              'img-placeholder mb-4 bg-secondary text-white d-flex justify-content-center align-items-center'
+            placeholder.style.height = '200px'
+            placeholder.innerText = 'Image Not Available'
+            placeholder.style.textAlign = 'center'
+
+            imagesArray.push({ imgNumber, img: placeholder })
+            checkAndAppendImages()
+          }
+
+          img.onload = () => {
+            imagesArray.push({ imgNumber, img })
+            checkAndAppendImages()
+          }
+        }
+
+        function checkAndAppendImages() {
+          if (imagesArray.length === imagesPerPage) {
+            // Ordena as imagens antes de adicionar ao grid
+            imagesArray.sort((a, b) => a.imgNumber - b.imgNumber)
+            imagesArray.forEach(({ img }) => {
+              const col = document.createElement('div')
+              col.className = 'col-md-3 col-sm-4 col-6'
+              col.appendChild(img)
+              imageGrid.appendChild(col)
+            })
+          }
+        }
+
+        updatePagination(page)
+        document.getElementById('pageNumber').textContent = page
+      }
+
+      function showImage(src) {
+        const modalImage = document.getElementById('modalImage')
+        const accessTimestamp = document.getElementById('accessTimestamp')
+        const responseHeadersTable = document.getElementById('responseHeaders')
+        modalImage.src = src
+        const timestamp = new Date().toLocaleString()
+        accessTimestamp.textContent = timestamp
+
+        // Fetch image headers
+        fetch(src, { method: 'HEAD' })
+          .then(response => {
+            responseHeadersTable.innerHTML = ''
+            for (let [key, value] of response.headers.entries()) {
+              const row = document.createElement('tr')
+              const keyCell = document.createElement('td')
+              const valueCell = document.createElement('td')
+              keyCell.textContent = key
+              valueCell.textContent = value
+              row.appendChild(keyCell)
+              row.appendChild(valueCell)
+              responseHeadersTable.appendChild(row)
+            }
+          })
+          .catch(error => console.error('Erro ao obter os headers:', error))
+      }
+
+      function changePage(page) {
+        if (page < 1) return
+        currentPage = page
+        loadImages(page)
+      }
+
+      function updatePagination(page) {
+        const previousPageItem = document.getElementById('previousPageItem')
+        const previousPageLinkItem = document.getElementById(
+          'previousPageLinkItem'
+        )
+        const currentPageLinkItem = document.getElementById(
+          'currentPageLinkItem'
+        )
+        const nextPageLinkItem = document.getElementById('nextPageLinkItem')
+        const nextPageItem = document.getElementById('nextPageItem')
+        previousPageLinkItem.style.display = page > 1 ? '' : 'none'
+        previousPageLinkItem.querySelector('.page-link').textContent = page - 1
+        currentPageLinkItem.querySelector('.page-link span').textContent = page
+        nextPageLinkItem.querySelector('.page-link').textContent = page + 1
+        previousPageLinkItem.classList.remove('active-page')
+        currentPageLinkItem.classList.add('active-page')
+        nextPageLinkItem.classList.remove('active-page')
+        previousPageItem.style.display = page === 1 ? 'none' : ''
+      }
+
+      function goToPage() {
+        const pageInput = document.getElementById('pageInput').value
+        const page = parseInt(pageInput, 10)
+        if (page >= 1) {
+          changePage(page)
+        }
+      }
+
+      window.onload = () => {
+        loadImages(currentPage)
+      }
+    </script>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+  </body>
+</html>
